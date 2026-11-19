@@ -1,601 +1,370 @@
+/****************************************************************************
+** Based on the Qt examples (Copyright (C) 2012 Nokia Corporation), BSD
+** license. See the original file header for the full license text.
+****************************************************************************/
+
 import QtQuick 2.3
 import QtGraphicalEffects 1.0
-import "danver"
 
-Item {
-    id: root
-    ////////// IC7 LCD RESOLUTION ////////////////////////////////////////////
-    width: 800
-    height: 480
-    x: 0
-    y: 0
-    z: 0
-    
-    property int myyposition: 0
-    property int udp_message: rpmtest.udp_packetdata
+import FileIO 1.0
 
-    property bool udp_up: udp_message & 0x01
-    property bool udp_down: udp_message & 0x02
-    property bool udp_left: udp_message & 0x04
-    property bool udp_right: udp_message & 0x08
+Item{
+    id:root
 
-    property int membank2_byte7: rpmtest.can203data[10]
-    property int inputs: rpmtest.inputsdata
+    property int udp_message:rpmtest.udp_packetdata
+    // onUdp_messageChanged: console.log(" UDP is "+udp_message)
 
-    //Inputs//31 max!!
-    property bool ignition: inputs & 0x01
-    property bool battery: inputs & 0x02
-    property bool lapmarker: inputs & 0x04
-    property bool rearfog: inputs & 0x08
-    property bool mainbeam: inputs & 0x10
-    property bool up_joystick: inputs & 0x20 || root.udp_up
-    property bool leftindicator: inputs & 0x40
-    property bool rightindicator: inputs & 0x80
-    property bool brake: inputs & 0x100
-    property bool oil: inputs & 0x200
-    property bool seatbelt: inputs & 0x400
-    property bool sidelight: inputs & 0x800
-    property bool tripresetswitch: inputs & 0x1000
-    property bool down_joystick: inputs & 0x2000 || root.udp_down
-    property bool doorswitch: inputs & 0x4000
-    property bool airbag: inputs & 0x8000
-    property bool tc: inputs & 0x10000
-    property bool abs: inputs & 0x20000
-    property bool mil: inputs & 0x40000
-    property bool shift1_id: inputs & 0x80000
-    property bool shift2_id: inputs & 0x100000
-    property bool shift3_id: inputs & 0x200000
-    property bool service_id: inputs & 0x400000
-    property bool race_id: inputs & 0x800000
-    property bool sport_id: inputs & 0x1000000
-    property bool cruise_id: inputs & 0x2000000
-    property bool reverse: inputs & 0x4000000
-    property bool handbrake: inputs & 0x8000000
-    property bool tc_off: inputs & 0x10000000
-    property bool left_joystick: inputs & 0x20000000 || root.udp_left
-    property bool right_joystick: inputs & 0x40000000 || root.udp_right
-
-    property int odometer: rpmtest.odometer0data/10*0.62 //Need to div by 10 to get 6 digits with leading 0
-    property int tripmeter: rpmtest.tripmileage0data*0.62
-    property real value: 0
-    property real shiftvalue: 0
-
-    property real rpm: rpmtest.rpmdata
-    property real rpmlimit: 8000 //Originally was 7k, switched to 8000 -t
-    property real rpmdamping: 5
-    property real speed: rpmtest.speeddata
-    property int speedunits: 2
-
-    property real watertemp: rpmtest.watertempdata
-    property real waterhigh: 0
-    property real waterlow: 80
-    property real waterunits: 1
-
-    property real fuel: rpmtest.fueldata
-    property real fuelhigh: 0
-    property real fuellow: 0
-    property real fuelunits
-    property real fueldamping
-
-    property real o2: rpmtest.o2data
-    property real map: rpmtest.mapdata
-    property real maf: rpmtest.mafdata
-
-    property real oilpressure: rpmtest.oilpressuredata
-    property real oilpressurehigh: 0
-    property real oilpressurelow: 0
-    property real oilpressureunits: 0
-
+    property bool udp_up:udp_message&0x01
+    property bool udp_down:udp_message&0x02
+    property bool udp_left:udp_message&0x04
+    property bool udp_right:udp_message&0x08
+    property int odometer:if(speedunits==0)rpmtest.odometer0data;else rpmtest.odometer0data*0.62
+    property int tripmeter:if(speedunits==0)rpmtest.tripmileage0data;else rpmtest.tripmileage0data*0.62
+    property real rpm:rpmtest.rpmdata
+    property real speed:rpmtest.speeddata
+    property int speedunits:0
+    property real watertemp:rpmtest.watertempdata
+    property real fuel:rpmtest.fueldata
+    property real o2:rpmtest.o2data
+    property real map:rpmtest.mapdata
+    property real maf:rpmtest.mafdata
+    property real oilpressure:rpmtest.oilpressuredata
     property real oiltemp: rpmtest.oiltempdata
-    property real oiltemphigh: 90
-    property real oiltemplow: 90
-    property real oiltempunits: 1
+    property real batteryvoltage:rpmtest.batteryvoltagedata
 
-    property real batteryvoltage: rpmtest.batteryvoltagedata
+    property real symbols:rpmtest.symbolsdata
+    property real symbols2:rpmtest.symbols2data
 
-    property int mph: (speed * 0.62)
+    property real gearpos:rpmtest.geardata
 
-    property int gearpos: rpmtest.geardata
+    property real rpmlimit:4000
+    property real shiftvalue:0
+    property string colorscheme: "green"
+    property int red: 255
+    property int green: 128
+    property int blue: 100
 
-    property real speed_spring: 1
-    property real speed_damping: 1
+    property real rpmdamping:1
 
-    property real rpm_needle_spring: 3.0 //if(rpm<1000)0.6 ;else 3.0
-    property real rpm_needle_damping: 0.2 //if(rpm<1000).15; else 0.2
+    property real batterylow:0
+    property real batteryhigh:0
+    property real batteryunits:0
 
-    property bool changing_page: rpmtest.changing_pagedata
+    property real afrlow:0
+    property real afrhigh:0
+    property real afrunits:0
 
-    property string white_color: "#FFFFFF"
-    property string primary_color: "#64E3D4"; //Kind of an off CYAN color (darker than night light color)
-    property string night_light_color: "#C7F8FD"  //Sort of blown out cyan
-    property string sweetspot_color: "#FFA500" //Cam Changeover Rev colpr
-    property string warning_red: "#E12910" //Redline/Warning colors
-    property string night_salmon_red: "#F85653" //For redline reference
-    property string engine_warmup_color: "#eb7500"
-    property string background_color: "#000000"
-    property string displayBkg: "#00003B"
-    property string displayDigits: "#8BAEF0"
-    property string displayPlaceholder: "#001C29"
-  
+    property int waterlow:0
+    property int waterhigh:0
+    property int waterunits:0
+    property int fuellow:0
+    property int fuelhigh:0
+    property int fuelunits:1
+    property int oiltemplow:0
+    property int oiltemphigh:0
+    property int oiltempunits:0
+    property int oilpressurelow:0
+    property int oilpressurehigh:0
+    property int oilpressureunits:0
+    property real night_time_hue:0
 
-    /* ########################################################################## */
-    /* Fonts */
-    /* ########################################################################## */
-    FontLoader{
-        id: greddy_segment
-        source: "./fonts/GreddySegment.ttf"
+    property bool settings_on_off:false
+    property bool menu_on_off:rpmtest.settings_on_offdata&0x02
+
+    onSettings_on_offChanged: {
+        if(settings_on_off) rpmtest.settings_on_offdata=rpmtest.settings_on_offdata|0x01
+        else rpmtest.settings_on_offdata=rpmtest.settings_on_offdata&~0x01
     }
-    FontLoader{
-        id: geist
+
+    width:800
+    height:480
+    x: 0
+
+    FontLoader {
+        id: geistFont
         source: "./fonts/GeistVariableVF.ttf"
     }
-    /* ########################################################################## */
-    /* Functions */
-    /* ########################################################################## */
-    function getDisplayColor(value, threshold) {
-        if (value < threshold) {
-            return !root.sidelight ? root.displayDigits : root.night_light_color
-        } else {
-            return !root.sidelight ? root.warning_red : root.night_salmon_red
-        }
-    }
-    /* ########################################################################## */
-    /* Main Layout items */
-    /* ########################################################################## */
-    Image{
-        x: 0; y:0
-        z: 0
-        height: 480
-        width: 800
-        source: "./danver/background.png"
-    }
-    Text{
-        text: "rpm x1000"
-        font.family: geist.name
-        font.bold: true
-        font.pixelSize: 22
-        x: 15.1; y: 108
-        z: 4
-        color: if(!root.sidelight) root.primary_color; else root.night_light_color
-        transform:
-            Rotation{
-                angle: -11.7
-            }
-    }
-    Image{
-        x: 14; y: 28
-        z:3
-        height: 217
-        width: 774
-        source: "./danver/rpm_mask.png"
-    }
-    Rectangle{
-        id: rpm_action
-        x: 16; y: 33
-        z:2
-        height: 200
-        width: Math.floor(root.rpm * .004) * 19.2   //Chunk-style
-        // width: 768 * (root.rpm/10000)            //Percentage-style
-        clip: true
-        color: "black"
-        Image{
-            z: 2
-            height: 200
-            width: 768
-            source: if(!root.sidelight) "./danver/cyanRPM.png"; else "./danver/cyanBrightRPM.png"
-        }
-    }
-    Image{
-        x: 16; y:33
-        z:1
-        height: 200
-        width: 768
-        source: "./danver/rpm_background.png"
-    }
-    Image{
-        x: 15; y: 237
-        z: 2
-        height: 53
-        width: 770
-        source: if(!root.sidelight) "./danver/daylight_rpm_marks.png"; else "./danver/dark_rpm_marks.png"
-    }
-    Item{
-        id: water_display
-        z:3
-        Rectangle{
-            x: 16; y: 296
-            z: 2
-            height: 55.6
-            width: 184
-            radius: 5
-            color: root.displayBkg
-        }
-        Text{
-            text: "288"
-            x: 24; y: 306
-            z:3
-            width: 209.6
-            height: 40.3
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: root.displayPlaceholder
-        }
-        Text{
-            text: "1"
-            x: 24; y: 306
-            z:3
-            width: 209.6
-            height: 40.3
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: root.displayPlaceholder
-        }
-        Text{
-            text: if(root.waterunits !== 1)((((root.watertemp.toFixed(0))*9)/5)+32).toFixed(0); else root.watertemp.toFixed(0)
-            x: -33; y: 306
-            z:3
-            width: 209.6
-            height: 40.3
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: color: root.getDisplayColor(root.watertemp, root.waterhigh)
-            horizontalAlignment: Text.AlignRight
-        }
-        Text{
-            text: "water"
-            z: 99
-            x: 175; y:346
-            font.pixelSize: 16
-            font.family: geist.name
-            font.bold: true
-            color: if(!root.sidelight){
-                    if(root.watertemp < root.waterhigh) root.displayDigits; else root.warning_red
-                    }
-                else{ 
-                    if(root.watertemp < root.waterhigh) root.night_light_color; else root.night_salmon_red
-                }
-            transform:
-                Rotation{
-                    angle: 270
-                }
-        }
-    }
-    Item{
-        id: speed_display
-        z:3
-        Rectangle{
-            x: 308; y: 296
-            z: 2
-            height: 55.6
-            width: 184
-            radius: 5
-            color: root.displayBkg
-        }
-        Text{
-            text: "288"
-            x: 318; y: 306
-            z:3
-            width: 209.6
-            height: 40.3
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: root.displayPlaceholder
-        }
-        Text{
-            text: "1"
-            x: 318; y: 306
-            z:3
-            width: 209.6
-            height: 40.3
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: root.displayPlaceholder
-        }
-        Text{
-            text: if (root.speedunits === 0){
-                        root.speed.toFixed(0) 
-                    }
-                    else{
-                        root.mph.toFixed(0)
-                    }
-            x: 262; y: 306
-            z:4
-            width: 209.6
-            height: 40.3
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: if(!root.sidelight) root.displayDigits; else root.night_light_color
-            horizontalAlignment: Text.AlignRight
-        }
-        Text{
-            text: if(root.speedunits === 0){
-                    "kmh"
-                    } 
-                    else{
-                    "mph"
-                    }
-            z: 99
-            x: 468; y:342
-            font.pixelSize: 18
-            font.family: geist.name
-            font.bold: true
-            color: if(!root.sidelight) root.displayDigits; else root.night_light_color
-            transform:
-                Rotation{
-                    angle: 270
-                }
-        }
-    }
-    Item{
-        id: rpm_display
-        z:3
-        Rectangle{
-            x: 532; y: 296
-            z: 2
-            height: 55.6
-            width: 250
-            radius: 5
-            color: root.displayBkg
-        }
-        Text{
-            text: "18888"
-            x: 507; y: 306
-            z:3
-            width: 209.6
-            height: 40
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: root.displayPlaceholder
-        }
-        Text{
-            text: root.rpm
-            x: 552; y: 306
-            z:4
-            width: 209.6
-            height: 40
-            font.pixelSize: 64
-            font.family: greddy_segment.name
-            color: if(!root.sidelight){
-                    if(root.rpm < root.rpmlimit) root.displayDigits; else root.warning_red
-                    }
-                else{ 
-                    if(root.rpm < root.rpmlimit) root.night_light_color; else root.night_salmon_red
-                }
-            horizontalAlignment: Text.AlignRight
-        }
-        Text{
-            text: "rpm"
-            z: 99
-            x: 758; y:340
-            font.pixelSize: 18
-            font.family: geist.name
-            font.bold: true
-            color: if(!root.sidelight){
-                    if(root.rpm < root.rpmlimit) root.displayDigits; else root.warning_red
-                    }
-                else{ 
-                    if(root.rpm < root.rpmlimit) root.night_light_color; else root.night_salmon_red
-                }
-            transform:
-                Rotation{
-                    angle: 270
-                }
-        }
-    }
-    Item{
-        id: other_gauges
-        Item{
-            id: oil_temp_module
-            visible: if(root.oiltemphigh !== 0 ) true; else false
-            Text{
-                text: "Oil Temp"
-                x: 47.2; y: 388.4
-                z: 1
-                font.family: geist.name
-                font.bold: true
-                font.pixelSize: 16
-                color: if(!root.sidelight){
-                    if(root.oiltemp < root.oiltemphigh) root.primary_color; else root.warning_red
-                    }
-                else{ 
-                    if(root.oiltemp < root.oiltemphigh) root.night_light_color; else root.night_salmon_red
-                }
-            }
-            Text{
-                text: if(root.oiltempunits !== 1)((((root.oiltemp.toFixed(0))*9)/5)+32).toFixed(0); else root.oiltemp.toFixed(0)
-                x: 139; y: 384
-                z: 1
-                width: 69.4
-                height: 19.4
-                font.family: greddy_segment.name
-                font.pixelSize: 40
-                color:color: root.getDisplayColor(root.oiltemp, root.oilhigh)
-                horizontalAlignment: Text.AlignRight
-            }
-        }
-        Item{
-            id: oil_pressure_module
-            visible: if(root.oilpressurehigh !== 0 ) true; else false
-            Text{
-                text: "Oil Pressure"
-                x: 24.2; y: 436.4
-                z: 1
-                font.family: geist.name
-                font.bold: true
-                font.pixelSize: 16
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            }
-            Text{
-                text: if(root.oilpressureunits === 1) root.oilpressure.toFixed(1); else (root.oilpressure.toFixed(1) * 14.504).toFixed(0)
-                x: 139; y: 431
-                z: 1
-                width: 69.4
-                height: 19.4
-                font.family: greddy_segment.name
-                font.pixelSize: 40
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-                horizontalAlignment: Text.AlignRight
-            }
-        }
-        Item{
-            id: fuel_module
-            Text{
-                text: "Fuel"
-                x: 304; y: 388.4
-                z: 1
-                font.family: geist.name
-                font.bold: true
-                font.pixelSize: 16
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            }
-            Rectangle{
-                x: 347; y: 389.4
-                z: 2
-                width: 142*(root.fuel/100)
-                height: 17
-                color: if(!root.sidelight){
-                    if(root.fuel > root.fuellow) root.primary_color; else root.warning_red
-                    }
-                else{ 
-                    if(root.fuel > root.fuellow) root.night_light_color; else root.night_salmon_red
-                }
-            }
-            Rectangle{
-                x: 346; y: 388.4
-                z: 1
-                width: 144
-                height: 19
-                gradient: Gradient {
-                        GradientStop { position: 0.0; color: root.displayBkg }
-                        GradientStop { position: 1.0; color: "black" }
-                    }
-                border.width: 1
-                border.color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            }
-            Rectangle{
-                x: 346; y: 410
-                z: 1
-                width: 144; height: 1;
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            }
-            Rectangle{
-                x: 346; y: 410
-                z: 1
-                width: 1; height: 8;
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            } 
-            Rectangle{
-                x: 417; y: 410
-                z: 1
-                width: 1; height: 8;
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            }
-            Rectangle{
-                x: 489; y: 410
-                z: 1
-                width: 1; height: 8;
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-            }
-        }
-        Item{ 
-            id: mileage_module
-            Text{
-                text: "Mileage"
-                x: 304; y: 436.4
-                z: 1
-                font.family: geist.name
-                font.bold: true
-                font.pixelSize: 16
-                color: if(!root.sidelight) "#5AB6B5"; else root.night_light_color
-            }
-            Text{
-                text: if (root.speedunits === 0)
-                        (root.odometer/.62).toFixed(0)
-                    else if(root.speedunits === 1)
-                        root.odometer
-                    else
-                        root.odometer
-                x: 405; y: 439
-                width: 87; height: 13.5
-                font.family: greddy_segment.name
-                font.pixelSize: 24
-                color: if(!root.sidelight) root.primary_color; else root.night_light_color
-                horizontalAlignment: Text.AlignRight
-            }
-        }
-    }
-    Item{
-        id: idiot_lights
-        Image{
-            x: 717.1; y: 380.9
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/gas-light.png"
-            visible: root.fuel < root.fuellow
-        }
-        Image{
-            x: 679.3; y: 380.9
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/oil-light.png"
-            visible: root.oil
-        }
-        Image{
-            x: 641.3; y: 380.9
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/brake-light.png"
-            visible: root.brake
-        }
-        Image{
-            x: 603.7; y: 380.9
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/seatbelt-light.png"
-            visible: root.seatbelt
-        }
-        Image{
-            x: 565.8; y: 380.9
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/blinker-light.png"
-            visible: root.leftindicator || root.rightindicator
-        }
-        Image{
-            x:735.9; y: 418
-             width: 33; height: 34 
-            z: 1
-            source: "./danver/checkengine-light.png"
-            visible: root.mil
-        }
-        Image{
-            x:660.3; y: 418
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/battery-light.png"
-            visible: root.battery
-        }
-        Image{
-            x:622.5; y: 418
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/airbag-light.png"
-            visible: root.airbag
-        }
-        Image{
-            x:584.7; y: 418
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/hibeams-light.png"
-            visible: root.mainbeam
-        }
-        Image{
-            x:546.8; y: 418
-            width: 33; height: 34 
-            z: 1
-            source: "./danver/abs-light.png"
-            visible: root.abs
-        }
+    ///////////////////////////////
+    // Config (JSON)
+    ///////////////////////////////
 
+    FileIO {
+        id: config_json
+        source: "opt/IC7/screen_configs/Danver_config.json"
+        onError: console.log(msg)
     }
-} //End Danver
+
+    // Old positional file, read once for migration only
+    FileIO {
+        id: config_file
+        source: "/opt/Garw_IC7/screen_configs/Danver_config.txt"
+        onError: console.log(msg)
+    }
+
+    // The schema. One entry per setting.
+    //   disabled: true -> the property still exists (so the dial can bind to it),
+    //   but it is hidden from the menu and not written to or read from the JSON.
+    readonly property var schema: [
+        { key: "colorscheme",      type: "string" },
+        { key: "red" },  { key: "green" },  { key: "blue" },
+        { key: "waterlow" },       { key: "waterhigh" },       { key: "waterunits" },
+        { key: "fuellow" },        { key: "fuelhigh" },        { key: "fuelunits" },
+        { key: "oiltemplow" },     { key: "oiltemphigh" },     { key: "oiltempunits" },
+        { key: "oilpressurelow" }, { key: "oilpressurehigh" }, { key: "oilpressureunits" },
+        { key: "speedunits" },     { key: "rpmlimit" },        { key: "shiftvalue" },
+        { key: "night_time_hue" }, { key: "rpmdamping" },
+        // no gauge for these on this dial
+        { key: "batterylow",  disabled: true },
+        { key: "batteryhigh", disabled: true },
+        { key: "afrlow",      disabled: true },
+        { key: "afrhigh",     disabled: true }
+    ]
+
+    // What the menu should list and what gets persisted
+    readonly property var editableSettings: schema.filter(function(s) { return !s.disabled })
+
+    // Old positional layout (line number -> key), used once for migration
+    readonly property var legacyKeys: [
+        "colorscheme", "red", "green", "blue",
+        "waterlow", "waterhigh", "waterunits",
+        "fuellow", "fuelhigh", "fuelunits",
+        "oiltemplow", "oiltemphigh", "oiltempunits",
+        "oilpressurelow", "oilpressurehigh", "oilpressureunits",
+        "speedunits", "rpmlimit", "shiftvalue", "night_time_hue",
+        "batterylow", "batteryhigh", "rpmdamping",
+        null,                       // line 23 was unused
+        "afrhigh", "afrlow"
+    ]
+
+    function schemaEntry(key) {
+        for (var i = 0; i < schema.length; i++)
+            if (schema[i].key === key) return schema[i]
+        return null
+    }
+
+    // IC7 FileIO returns one line per open, so re-open for every line
+    function readLines(f, maxLines) {
+        var out = []
+        for (var i = 0; i < maxLines; i++) {
+            var s = ""
+            try { f.openforreading(); s = f.readopenfile(i); f.close() }
+            catch (e) { console.log("config read failed at line " + i + ": " + e) }
+            if (s === "" || s === undefined || s === null) break
+            out.push(String(s))
+        }
+        return out
+    }
+
+    function applyConfigValue(key, v) {
+        var e = schemaEntry(key)
+        if (!e || e.disabled) return
+        if (e.type === "string") root[key] = String(v)
+        else if (!isNaN(Number(v))) root[key] = Number(v)
+    }
+
+    // returns "json", "legacy", "none" or "error"
+    function loadConfig() {
+        var lines = readLines(config_json, 300)
+        if (lines.length > 0) {
+            try {
+                var obj = JSON.parse(lines.join("\n"))
+                for (var i = 0; i < editableSettings.length; i++) {
+                    var k = editableSettings[i].key
+                    if (obj.hasOwnProperty(k)) applyConfigValue(k, obj[k])
+                }
+                return "json"
+            } catch (e) {
+                console.log("config JSON invalid, keeping defaults and NOT overwriting: " + e)
+                return "error"
+            }
+        }
+        var old = readLines(config_file, 26)
+        if (old.length > 0) {
+            for (var j = 0; j < old.length && j < legacyKeys.length; j++)
+                if (legacyKeys[j]) applyConfigValue(legacyKeys[j], old[j])
+            return "legacy"
+        }
+        return "none"
+    }
+
+    function save_settings() {
+        var obj = {}
+        for (var i = 0; i < editableSettings.length; i++)
+            obj[editableSettings[i].key] = root[editableSettings[i].key]
+        try {
+            config_json.open()
+            config_json.writetoopenfile(JSON.stringify(obj, null, 2) + "\n")   // single write
+            config_json.close()
+        } catch (e) { console.log("config write failed: " + e) }
+    }
+
+    Component.onCompleted: {
+        try { rpmtest.DISABLE_WARNING_OVERLAY = "YES_WARNINGS_HANDLED_LOCALLY" } catch (e) {}
+        var r = loadConfig()
+        if (r === "legacy" || r === "none") save_settings()   // migrate / seed defaults
+    }
+
+    ///////////////////////////////
+    // Inputs (unchanged)
+    ///////////////////////////////
+
+    property int inputs:rpmtest.inputsdata
+
+    //Inputs//31 max!!
+    property bool ignition      :inputs&0x01
+    property bool battery       :inputs&0x02
+    property bool lapmarker     :inputs&0x04
+    property bool rearfog       :inputs&0x08
+    property bool mainbeam      :inputs&0x10
+    property bool up_joystick   :inputs&0x20 || root.udp_up
+    property bool leftindicator :inputs&0x40
+    property bool rightindicator:inputs&0x80
+    property bool brake         :inputs&0x100
+    property bool oil           :inputs&0x200
+    property bool seatbelt      :inputs&0x400
+    property bool sidelight     :inputs&0x800
+    property bool tripresetswitch     :inputs&0x1000
+    property bool down_joystick :inputs&0x2000 || root.udp_down
+    property bool doorswitch    :inputs&0x4000
+    property bool airbag        :inputs&0x8000
+    property bool tc            :inputs&0x10000
+    property bool abs           :inputs&0x20000
+    property bool mil           :inputs&0x40000
+    property bool shift1_id     :inputs&0x80000
+    property bool shift2_id     :inputs&0x100000
+    property bool shift3_id     :inputs&0x200000
+    property bool service_id    :inputs&0x400000
+    property bool race_id       :inputs&0x800000
+    property bool sport_id      :inputs&0x1000000
+    property bool cruise_id     :inputs&0x2000000
+    property bool reverse:inputs&0x4000000
+    property bool handbrake :inputs&0x8000000
+    property bool tc_off     :inputs&0x10000000
+    property bool left_joystick :inputs&0x20000000 || root.udp_left
+    property bool right_joystick:inputs&0x40000000 || root.udp_right
+
+    onUp_joystickChanged: console.log("up")
+    onDown_joystickChanged: console.log("down")
+    onLeft_joystickChanged: console.log("left")
+    onRight_joystickChanged: console.log("right")
+
+    property bool movedown:left_joystick
+    property bool moveup:right_joystick
+    property bool increament:up_joystick
+    property bool decreament:down_joystick
+
+    ///////////////////////////////
+    // Settings menu (new)
+    ///////////////////////////////
+
+    SettingsMenu {
+        id: menu
+        target: root
+        open: root.settings_on_off
+        labelFont: geistFont.name
+        valueFont: geistFont.name
+        z: 1
+        onExitRequested: { root.settings_on_off = false; root.save_settings() }
+    }
+
+    onMovedownChanged: if (movedown && settings_on_off) menu.move(-1)
+    onMoveupChanged:   if (moveup   && settings_on_off) menu.move(1)
+
+    // up: opens the menu, otherwise changes the selected value
+    onIncreamentChanged: {
+        if (increament) {
+            if (!settings_on_off) { if (!menu_on_off) settings_on_off = true }
+            else if (!menu_on_off) menu.press(1)
+        } else menu.release()
+    }
+
+    // down: changes the selected value
+    onDecreamentChanged: {
+        if (decreament) { if (settings_on_off) menu.press(-1) }
+        else menu.release()
+    }
+
+    ///////////////////////////////
+    // Dial: shrinks to a live preview while settings are open
+    ///////////////////////////////
+
+    Item {
+        id: screen
+        width: 800
+        height: 480
+        clip: true
+        z: 0
+
+        x: root.settings_on_off ? 120 : 0
+        Behavior on x { NumberAnimation { duration: 500 } }
+        y: root.settings_on_off ? 15 : 0
+        Behavior on y { NumberAnimation { duration: 500 } }
+        scale: root.settings_on_off ? 0.7 : 1.0
+        Behavior on scale { NumberAnimation { duration: 500 } }
+    DanverDisplay  {
+        id: dial
+        odometer:root.odometer
+        tripmeter:root.tripmeter
+        shiftvalue:root.shiftvalue
+        rpm:root.rpm
+        rpmlimit:root.rpmlimit
+        rpmdamping:root.rpmdamping
+        speed:root.speed
+        speedunits: root.speedunits
+        watertemp:root.watertemp
+        waterhigh:root.waterhigh
+        waterlow:root.waterlow
+        waterunits: root.waterunits
+        fuel:root.fuel
+        fuelhigh:root.fuelhigh
+        fuellow:root.fuellow
+        fuelunits: root.fuelunits
+        o2: root.o2
+        map: root.map
+        maf: root.maf
+        oilpressure: root.oilpressure
+        oilpressurehigh:root.oilpressurehigh
+        oilpressurelow:root.oilpressurelow
+        oilpressureunits: root.oilpressureunits
+        oiltemp: root.oiltemp
+        oiltemphigh:root.oiltemphigh
+        oiltemplow: root.oiltemplow
+        oiltempunits: root.oiltempunits
+        batteryvoltage: root.batteryvoltage
+        userColor: Qt.rgba(root.red/255, root.green/255, root.blue/255, 1)
+        gearpos: root.gearpos
+        udp_message:root.udp_message
+        inputs: root.inputs
+        settingsFocus: menu.focusKey     // add `property string settingsFocus: ""` to AgeSolo
+        opacity: 1
+        width: 800
+        height: 480
+        antialiasing: true
+        clip: true
+    }
+
+
+
+
+
+    // =====================================================================
+    //  PASTE YOUR SCREEN QML ABOVE THIS LINE
+    // =====================================================================
+    }   // end of `screen`
+
+
+    GridBackground {
+        anchors.fill: parent
+        z: -1
+        opacity: root.settings_on_off ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 500 } }
+        visible: opacity > 0
+        backColor:   "#06100c"   // gap colour, top
+        backColor2:  "#030806"   // gap colour bottom, fog and vignette
+        tileColor:    "#64e3d4"   // tile, lower half of its gradient
+        tileColor2:  "#8BAEF0"   // tile, upper half
+        edgeColor:   "#dddddd"   // rim light on the tile edges
+        accentColor: "#ffd400"   // the odd glowing tile
+        tilt: .7
+    }
+}
